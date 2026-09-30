@@ -20,20 +20,20 @@
   body{font-family:"IBM Plex Sans Arabic",sans-serif;color:var(--ink);
        -webkit-print-color-adjust:exact;print-color-adjust:exact}
   .sheet{width:297mm;height:420mm;padding:12mm 10.6mm 12mm;display:flex;flex-direction:column;overflow:hidden}
-  .en{font-family:"IBM Plex Sans",sans-serif;text-transform:uppercase;letter-spacing:.32em;color:var(--muted);font-weight:600}
+  .en{font-family:"IBM Plex Sans",sans-serif;letter-spacing:.02em;color:var(--ink);font-weight:600}
 
   /* Header — same structure as the room evacuation plan */
   header{display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:4mm;border-bottom:1.2mm solid var(--red)}
   .brand h1{font-weight:600;font-size:11mm;line-height:1}
-  .brand .en{font-size:3mm;margin-top:2.2mm}
+  .brand .en{font-size:4.6mm;margin-top:2mm;color:var(--muted)}
   .doc{text-align:center}
   .doc h2{color:var(--red);font-weight:700;font-size:10mm;line-height:1}
-  .doc .en{color:var(--red);font-size:3mm;margin-top:2.2mm}
+  .doc .en{color:var(--red);font-size:5.2mm;margin-top:2mm}
   .tag{display:flex;align-items:center;gap:3mm}
   .tag .box{background:var(--red);color:#fff;border-radius:2mm;padding:2.6mm 4mm;display:flex;align-items:center}
   .tag .box svg{width:9mm;height:9mm}
   .tag .lbl b{display:block;font-weight:500;font-size:4.2mm}
-  .tag .lbl .en{font-size:2.6mm;margin-top:1mm}
+  .tag .lbl .en{font-size:4mm;margin-top:1mm;color:var(--muted)}
 
   /* Main panel */
   main{flex:1;margin-top:9mm;background:var(--card);border:.35mm solid var(--line);border-radius:2mm;
@@ -42,24 +42,26 @@
         box-shadow:0 0 0 5mm #f3e4e4}
   .icon svg{width:30mm;height:30mm}
   .title{font-size:34mm;font-weight:700;line-height:1.1;margin-top:20mm}
-  .title-en{font-size:7mm;margin-top:5mm;color:var(--red)}
+  .title-en{font-size:13mm;margin-top:4mm;color:var(--red)}
   .rule{width:60mm;height:1.2mm;background:var(--red);margin:16mm auto 14mm;border-radius:1mm}
   .phone{font-family:"IBM Plex Sans",sans-serif;font-weight:700;font-size:25mm;letter-spacing:.02em;color:var(--ink);line-height:1;direction:ltr;white-space:nowrap}
   .phone .cc{color:var(--red)}
   .avail{margin-top:13mm;display:flex;gap:6mm;justify-content:center}
-  .pill{border:.4mm solid var(--line);background:var(--bg);border-radius:20mm;padding:3.2mm 8mm;display:flex;flex-direction:column;align-items:center}
-  .pill b{font-weight:600;font-size:6.4mm;line-height:1.3}
-  .pill .en{font-size:2.8mm;letter-spacing:.24em}
+  .pill{border:.4mm solid var(--line);background:var(--bg);border-radius:20mm;padding:4mm 11mm;display:flex;flex-direction:column;align-items:center}
+  .pill b{font-weight:700;font-size:8.5mm;line-height:1.3}
+  .pill.hot{background:var(--red);border-color:var(--red)}
+  .pill.hot b,.pill.hot .en{color:#fff}
+  .pill .en{font-size:6mm}
 
   /* Footer strip */
   footer{margin-top:9mm;padding-top:6mm;border-top:1.2mm solid var(--red);display:flex;align-items:center;justify-content:space-between;gap:10mm}
   .note b{display:block;color:var(--red);font-weight:600;font-size:6mm}
   .note p{font-size:4.6mm;margin-top:1.5mm;color:var(--ink)}
-  .note .en{display:block;font-size:2.8mm;letter-spacing:.2em;margin-top:2.5mm}
+  .note .en{display:block;font-size:4.6mm;margin-top:2mm}
   .qrwrap{display:flex;align-items:center;gap:5mm;background:var(--card);border:.35mm solid var(--line);border-radius:2mm;padding:4mm 5mm}
   .qr{width:32mm;height:32mm;display:block}
   .qrwrap b{display:block;font-weight:600;font-size:4.6mm}
-  .qrwrap .en{font-size:2.5mm;letter-spacing:.2em;margin-top:1.4mm;display:block}
+  .qrwrap .en{font-size:3.8mm;margin-top:1.2mm;display:block;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -91,15 +93,15 @@
     <div class="phone">055 026 7361</div>
     <div class="avail">
       <div class="pill"><b>اتصال · واتساب</b><span class="en">Call · WhatsApp</span></div>
-      <div class="pill"><b>متوفر على مدار اليوم</b><span class="en">Available 24 / 7</span></div>
+      <div class="pill hot"><b>متوفر 24 ساعة</b><span class="en" dir="ltr">Available 24 Hours</span></div>
     </div>
   </main>
 
   <footer>
     <div class="note">
       <b>لأي استفسار أو طلب أو ملاحظة</b>
-      <p>تواصل مع المدير المناوب مباشرة على الرقم أعلاه</p>
-      <span class="en">For any inquiry, request or feedback — contact the duty manager</span>
+      <p>تواصل مع المدير المناوب مباشرة على مدار 24 ساعة</p>
+      <span class="en" dir="ltr">For any inquiry, request or feedback, contact the duty manager 24/7</span>
     </div>
     <div class="qrwrap">
       <div><b>امسح للاتصال</b><span class="en">Scan to call</span></div>
