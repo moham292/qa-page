@@ -1,0 +1,43 @@
+ pivot_n  support_tol  equal_tol  provisional sr_tiebreak  trend  trend_n  sr  sr_n  total  n
+       3         0.02      0.005         True     nearest      5        6   3     5      8 11
+       3         0.03      0.005         True     nearest      5        6   3     5      8 11
+       3         0.05      0.005         True     nearest      5        6   3     5      8 11
+       2         0.02      0.005         True     nearest      4        6   2     5      6 11
+       2         0.03      0.005         True     nearest      4        6   2     5      6 11
+       2         0.05      0.005         True     nearest      4        6   2     5      6 11
+       8         0.02      0.005         True     nearest      4        6   2     5      6 11
+       8         0.02      0.010         True     nearest      4        6   2     5      6 11
+       8         0.03      0.005         True     nearest      4        6   2     5      6 11
+       8         0.03      0.010         True     nearest      4        6   2     5      6 11
+       8         0.05      0.005         True     nearest      4        6   2     5      6 11
+       8         0.05      0.010         True     nearest      4        6   2     5      6 11
+       3         0.02      0.005        False     nearest      3        6   3     5      6 11
+       3         0.02      0.010         True     nearest      3        6   3     5      6 11
+       3         0.03      0.005        False     nearest      3        6   3     5      6 11
+       3         0.03      0.010         True     nearest      3        6   3     5      6 11
+       3         0.05      0.005        False     nearest      3        6   3     5      6 11
+       3         0.05      0.010         True     nearest      3        6   3     5      6 11
+       5         0.02      0.005         True     nearest      3        6   3     5      6 11
+       5         0.02      0.010         True     nearest      3        6   3     5      6 11
+       5         0.03      0.005         True     nearest      3        6   3     5      6 11
+       5         0.03      0.010         True     nearest      3        6   3     5      6 11
+       5         0.05      0.005         True     nearest      3        6   3     5      6 11
+       5         0.05      0.010         True     nearest      3        6   3     5      6 11
+       3         0.02      0.005         True   ambiguous      5        6   0     5      5 11
+
+تركيبات بأعلى مجموع (8/11): 3 من 180
+
+التفاصيل لـ {'pivot_n': 3, 'support_tol': 0.02, 'equal_tol': 0.005, 'provisional': True, 'sr_tiebreak': 'nearest'}
+– TASI 2024-08-06 sr دعم لا بيانات محاضرة (5)
+✓ 4200 2024-08-06 sr دعم دعم (5) الدريس
+✗ 1810 2024-08-06 sr لا شيء دعم (5) سيرا — كسر الدعم وهابط
+✗ 4050 2024-08-06 sr دعم مقاومة (5) ساسكو
+✓ 1140 2024-08-06 sr دعم دعم (5) البلاد — مقاومة مخترقة
+✓ 4300 2024-08-06 sr مقاومة مقاومة (5) دار الأركان
+– TASI 2024-08-08 sr مقاومة لا بيانات (7) تاسي إغلاق الخميس
+✓ 4030 2024-08-05 trend صاعد صاعد (6) البحري
+✓ 1120 2024-08-05 trend صاعد صاعد (6) الراجحي
+✓ 2382 2024-08-05 trend هابط هابط (6) أديس
+✓ 1211 2024-08-05 trend هابط هابط (6) معادن
+✗ 4162 2024-08-05 trend هابط عرضي (6) المنجم
+✓ 1140 2024-08-05 trend صاعد صاعد (6) البلاد

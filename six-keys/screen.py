@@ -14,13 +14,14 @@ from keys import Params, evaluate, macd_negative_cross
 
 
 def screen(on: pd.Timestamp | None, p: Params) -> pd.DataFrame:
-    tasi = data.load_prices("TASI")
-    if on is not None:
-        tasi = tasi.loc[:on]
-    day = tasi.index[-1]
+    tasi, _, lag = data.load_benchmark()
+    syms = data.symbols()
+    # آخر يوم تداول (حتى on إن حُدد) عبر كل الأسهم
+    day = max(d for s in syms for d in data.load_prices(s).loc[:on].index[-1:])
+    tasi = tasi.loc[:day - pd.Timedelta(days=lag)] if lag else tasi.loc[:day]
     fund, sharia = data.load_fundamentals(), data.load_sharia()
     rows = []
-    for sym in data.symbols():
+    for sym in syms:
         df = data.load_prices(sym).loc[:day]
         if len(df) < p.sma_len + 10 or df.index[-1] != day:
             continue

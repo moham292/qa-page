@@ -21,6 +21,18 @@ def load_prices(symbol: str, root: Path = DATA) -> pd.DataFrame:
     return df[["Open", "High", "Low", "Close", "Volume"]].dropna()
 
 
+def load_benchmark(root: Path = DATA) -> tuple[pd.DataFrame, str, int]:
+    """مؤشر السوق للمفتاح 3 وللمقارنة: تاسي إن توفر تاريخه، وإلا صندوق KSA (iShares MSCI Saudi Arabia) كبديل.
+    يعيد (البيانات، الاسم، التأخير بالأيام). KSA يُغلق في نيويورك بعد إغلاق تداول بساعات ← يُستخدم بتأخير يوم."""
+    f = root / "prices" / "TASI.csv"
+    if f.exists():
+        t = load_prices("TASI", root)
+        if len(t) >= 250:
+            return t, "تاسي", 0
+    df = pd.read_csv(root / "benchmark" / "KSA.csv", parse_dates=["Date"]).set_index("Date").sort_index()
+    return df[["Open", "High", "Low", "Close", "Volume"]].dropna(), "KSA (بديل تاسي)", 1
+
+
 def symbols(root: Path = DATA) -> list[str]:
     return sorted(p.stem for p in (root / "prices").glob("*.csv") if p.stem != "TASI")
 

@@ -169,16 +169,31 @@ def _max_dd(s: pd.Series) -> float:
     return float((s / s.cummax() - 1).min())
 
 
-def summarize(eq: pd.Series, trades: list[Trade], tasi: pd.DataFrame) -> dict:
-    t = tasi["Close"].loc[eq.index[0]:eq.index[-1]]
+def _cagr(s: pd.Series) -> float:
+    years = (s.index[-1] - s.index[0]).days / 365.25
+    return float((s.iloc[-1] / s.iloc[0]) ** (1 / years) - 1) if years > 0 else float("nan")
+
+
+def equal_weight(prices: dict[str, pd.DataFrame], dates: pd.DatetimeIndex) -> pd.Series:
+    """معيار ثانوي: متوسط العائد اليومي لكل الأسهم المتاحة (أوزان متساوية، إعادة توازن يومية)."""
+    closes = pd.DataFrame({s: df["Close"] for s, df in prices.items()}).reindex(dates)
+    r = closes.pct_change(fill_method=None).mean(axis=1).fillna(0)
+    return (1 + r).cumprod()
+
+
+def summarize(eq: pd.Series, trades: list[Trade], bench: pd.DataFrame, bench_name: str = "تاسي",
+              ew: pd.Series | None = None) -> dict:
+    t = bench["Close"].loc[eq.index[0]:eq.index[-1]]
     out = {
         "الفترة": f"{eq.index[0].date()} ← {eq.index[-1].date()}",
-        "عائد المحفظة": f"{eq.iloc[-1] / eq.iloc[0] - 1:.2%}",
-        "عائد تاسي (شراء واحتفاظ)": f"{t.iloc[-1] / t.iloc[0] - 1:.2%}",
+        "عائد المحفظة": f"{eq.iloc[-1] / eq.iloc[0] - 1:.2%} (سنوياً {_cagr(eq):.2%})",
+        f"عائد {bench_name} (شراء واحتفاظ)": f"{t.iloc[-1] / t.iloc[0] - 1:.2%} (سنوياً {_cagr(t):.2%})",
         "أسوأ تراجع للمحفظة": f"{_max_dd(eq):.2%}",
-        "أسوأ تراجع لتاسي": f"{_max_dd(t):.2%}",
-        "عدد الصفقات": len(trades),
+        f"أسوأ تراجع لـ {bench_name}": f"{_max_dd(t):.2%}",
     }
+    if ew is not None:
+        out["عائد كل الأسهم بأوزان متساوية"] = f"{ew.iloc[-1] - 1:.2%} (سنوياً {_cagr(ew):.2%})، أسوأ تراجع {_max_dd(ew):.2%}"
+    out["عدد الصفقات"] = len(trades)
     if trades:
         r = np.array([x.ret for x in trades])
         dd = np.array([x.max_drawdown for x in trades])
@@ -197,6 +212,9 @@ def summarize(eq: pd.Series, trades: list[Trade], tasi: pd.DataFrame) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--start", help="بداية الاختبار (بعد فترة الإحماء)")
+    ap.add_argument("--end")
+    ap.add_argument("--tag", default="", help="لاحقة لأسماء ملفات النتائج")
     ap.add_argument("--pivot-n", type=int, default=3)
     ap.add_argument("--support-tol", type=float, default=0.03)
     ap.add_argument("--macd-mode", choices=["state", "event"], default="state")
@@ -204,20 +222,28 @@ def main():
     a = ap.parse_args()
     p = Params(pivot_n=a.pivot_n, support_tol=a.support_tol, macd_mode=a.macd_mode)
 
-    tasi = data.load_prices("TASI")
+    tasi, bench_name, lag = data.load_benchmark()
+    print(f"مؤشر السوق: {bench_name}" + (f" — بتأخير {lag} يوم لتجنب النظر للمستقبل" if lag else ""))
     tasi_up = trend_series(tasi, p) == "صاعد"
+    if lag:  # حالة المؤشر المعروفة قبل يوم التداول السعودي d: آخر إغلاق قبل d
+        tasi_up.index = tasi_up.index + pd.Timedelta(days=lag)
     fund, sharia = data.load_fundamentals(), data.load_sharia()
     if fund is None:
         print("تنبيه: لا يوجد fundamentals.csv — المفتاح 2 يُعتبر متحققاً لكل الأسهم.")
     if sharia is None:
         print("تنبيه: لا يوجد sharia.csv — الفلتر الشرعي معطّل.")
 
-    prices = {s: data.load_prices(s) for s in data.symbols()}
+    prices = {s: data.load_prices(s).loc[:a.end] for s in data.symbols()}
+    all_days = sorted(set().union(*[df.index for df in prices.values()]))
+    tasi_up = tasi_up.reindex(tasi_up.index.union(all_days)).ffill().fillna(False).astype(bool)
     sigs = {s: signals(s, df, tasi_up, fund, sharia, p) for s, df in prices.items() if len(df) > 80}
+    if a.start:
+        sigs = {s: x.loc[a.start:] for s, x in sigs.items() if len(x.loc[a.start:])}
     eq, trades = simulate(sigs, prices, a.allow_five)
-    pd.DataFrame([asdict(t) for t in trades]).to_csv("trades.csv", index=False, encoding="utf-8-sig")
-    eq.to_csv("equity.csv", header=["equity"])
-    for k, v in summarize(eq, trades, tasi).items():
+    pd.DataFrame([asdict(t) for t in trades]).to_csv(f"trades{a.tag}.csv", index=False, encoding="utf-8-sig")
+    eq.to_csv(f"equity{a.tag}.csv", header=["equity"])
+    ew = equal_weight(prices, eq.index)
+    for k, v in summarize(eq, trades, tasi, bench_name, ew).items():
         print(f"{k}: {v}")
 
 

@@ -21,7 +21,7 @@ class Params:
     pivot_n: int = 3
     # قمتان/قاعان "متساويان تقريباً" لا يصنعان اتجاهاً (محاضرة 6: "القيعان تقريباً متساوية ← عرضي").
     # الفرق المطلوب ليُعتبر أعلى/أدنى — اجتهاد.
-    equal_tol: float = 0.01
+    equal_tol: float = 0.005   # معايَر: أعلى تطابق مع المدربين (check_instructor_cases.py)
     # شروط الاختراق (محاضرة 6): يكفي واحد من ثلاثة.
     breakout_pct: float = 0.03          # إغلاق فوق القمة السابقة بـ 3% أو أكثر
     big_candle_body_mult: float = 2.0   # "شمعة كبيرة": جسمها ≥ ضعف متوسط الأجسام (اجتهاد)
@@ -39,6 +39,11 @@ class Params:
     # "event" (تقاطع حديث فقط) مُبقى للمقارنة.
     macd_mode: str = "state"
     macd_event_days: int = 3
+    # قمة/قاع مؤقت (اجتهاد): إذا كُسر آخر قاع مؤكد بكسر مؤكد، يُعامل أدنى سعر منذ الكسر كقاع جديد
+    # قبل أن يتأكد بمرور pivot_n شمعة (والعكس للقمم). يطابق قراءة المدرب بالعين لسهم كسر قاعه للتو.
+    provisional: bool = True    # معايَر
+    # إذا كان السعر قريباً من دعم ومقاومة معاً: "ambiguous" يتركها حالة مستقلة، "nearest" يختار الأقرب (اجتهاد).
+    sr_tiebreak: str = "nearest"  # معايَر
 
 
 # ---------- أدوات أساسية ----------
@@ -99,16 +104,35 @@ def _confirmed_breakout(df: pd.DataFrame, level: float, start: int, p: Params, u
 
 # ---------- المفتاح 1 و 3: الاتجاه ----------
 
+def _with_provisional(df: pd.DataFrame, highs: list, lows: list, p: Params):
+    """يضيف قاعاً (قمة) مؤقتاً إذا كُسر آخر قاع (قمة) مؤكد كسراً مؤكداً بعد آخر قمة (قاع)."""
+    H, L = df["High"].to_numpy(), df["Low"].to_numpy()
+    highs, lows = list(highs), list(lows)
+    if lows and highs:
+        l2 = lows[-1]
+        start = max(l2, highs[-1]) + 1
+        if start < len(df) and L[start:].min() < L[l2] and _confirmed_breakout(df, L[l2], start - 1, p, up=False):
+            lows.append(start + int(np.argmin(L[start:])))
+    if lows and highs:
+        h2 = highs[-1]
+        start = max(h2, lows[-1]) + 1
+        if start < len(df) and H[start:].max() > H[h2] and _confirmed_breakout(df, H[h2], start - 1, p, up=True):
+            highs.append(start + int(np.argmax(H[start:])))
+    return highs, lows
+
+
 def trend(df: pd.DataFrame, p: Params, piv=None) -> str:
     """صاعد: قاع أعلى من قاع وقمة أعلى من قمة (آخر قمتين وآخر قاعين)، والقمة الأحدث اختُرقت قمتها السابقة باختراق مؤكد.
     هابط: العكس. غير ذلك: عرضي."""
     highs, lows = piv if piv is not None else pivots(df, p.pivot_n)
     if len(highs) < 2 or len(lows) < 2:
         return "غير كافٍ"
-    h1, h2 = highs[-2], highs[-1]
-    l1, l2 = lows[-2], lows[-1]
     H, L = df["High"].to_numpy(), df["Low"].to_numpy()
     c_last = df["Close"].iloc[-1]
+    if p.provisional:
+        highs, lows = _with_provisional(df, highs, lows, p)
+    h1, h2 = highs[-2], highs[-1]
+    l1, l2 = lows[-2], lows[-1]
 
     e = p.equal_tol
     up = L[l2] > L[l1] * (1 + e) and H[h2] > H[h1] * (1 + e)
@@ -157,6 +181,8 @@ def support_status(df: pd.DataFrame, p: Params, piv=None) -> tuple[str, float | 
     if at_r and not at_s:
         return "مقاومة", near_r
     if at_s and at_r:
+        if p.sr_tiebreak == "nearest":
+            return ("دعم", near_s) if c - near_s <= near_r - c else ("مقاومة", near_r)
         return "بين دعم ومقاومة متقاربين", near_s
     return "لا شيء", near_s
 

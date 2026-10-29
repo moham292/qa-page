@@ -46,13 +46,44 @@ def run(p: Params) -> list[tuple]:
     return out
 
 
+GRID = dict(pivot_n=[2, 3, 5, 8, 13], support_tol=[0.02, 0.03, 0.05], equal_tol=[0.005, 0.01, 0.02],
+            provisional=[False, True], sr_tiebreak=["ambiguous", "nearest"])
+
+
+def grid() -> pd.DataFrame:
+    rows = []
+    for vals in itertools.product(*GRID.values()):
+        kw = dict(zip(GRID, vals))
+        res = [r for r in run(Params(**kw)) if r[4] != "لا بيانات"]
+        tr = [r for r in res if r[2] == "trend"]
+        sr = [r for r in res if r[2] == "sr"]
+        rows.append({**kw, "trend": sum(r[3] == r[4] for r in tr), "trend_n": len(tr),
+                     "sr": sum(r[3] == r[4] for r in sr), "sr_n": len(sr),
+                     "total": sum(r[3] == r[4] for r in res), "n": len(res)})
+    return pd.DataFrame(rows).sort_values(["total", "trend"], ascending=False)
+
+
 if __name__ == "__main__":
-    for n, tol in itertools.product([2, 3, 5, 8], [0.02, 0.03, 0.05]):
-        res = run(Params(pivot_n=n, support_tol=tol))
-        scored = [r for r in res if r[4] != "لا بيانات"]
-        hit = sum(r[3] == r[4] for r in scored)
-        print(f"pivot_n={n} support_tol={tol:.0%}: {hit}/{len(scored)} تطابق")
-    print()
-    for r in run(Params()):
-        mark = "✓" if r[3] == r[4] else "✗"
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pivot-n", type=int)
+    ap.add_argument("--support-tol", type=float)
+    ap.add_argument("--equal-tol", type=float)
+    ap.add_argument("--provisional", action="store_true")
+    ap.add_argument("--sr-tiebreak")
+    a = ap.parse_args()
+    g = grid()
+    g.to_csv("instructor_grid.csv", index=False)
+    print(g.head(25).to_string(index=False))
+    print(f"\nتركيبات بأعلى مجموع ({g.total.max()}/{g.n.iloc[0]}): {(g.total == g.total.max()).sum()} من {len(g)}")
+    best = g.iloc[0].to_dict()
+    kw = {k: best[k] for k in GRID}
+    for k in GRID:
+        v = getattr(a, k)
+        if v not in (None, False):
+            kw[k] = v
+    kw["pivot_n"] = int(kw["pivot_n"])
+    print("\nالتفاصيل لـ", kw)
+    for r in run(Params(**kw)):
+        mark = "✓" if r[3] == r[4] else ("–" if r[4] == "لا بيانات" else "✗")
         print(mark, *r)
