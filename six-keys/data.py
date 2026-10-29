@@ -25,7 +25,34 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     df = df[(df["Volume"] > 0) & (df[["Open", "High", "Low", "Close"]] > 0).all(axis=1)]
     r = df["Close"].pct_change()
     spike = (r.abs() > 0.25) & (r.shift(-1).abs() > 0.20) & (np.sign(r) != np.sign(r.shift(-1)))
-    return df[~spike]
+    return adjust_corporate_actions(df[~spike])
+
+
+LIMIT = 0.10       # حد التذبذب اليومي في تداول
+IPO_DAYS = 5       # أيام الإدراج الأولى لها حدود أوسع — لا تُعدّل
+
+
+def adjust_corporate_actions(df: pd.DataFrame) -> pd.DataFrame:
+    """Yahoo لا يعدّل بعض الإجراءات على رأس المال (حقوق أولوية، منحة، تخفيض رأس مال) للأسهم السعودية،
+    فتظهر حركة يومية تتجاوز حد ±10% ولا تنعكس. التعديل الرجعي:
+      - إن تجاوزت فجوة الافتتاح الحد: المعامل = الافتتاح ÷ إغلاق الأمس (الافتتاح ≈ السعر المرجعي بعد الإجراء).
+      - وإلا: يُفترض أن الحركة الحقيقية كانت عند الحد، والباقي إجراء.
+    تُضرب كل الأسعار قبل اليوم في المعامل ويُقسم الحجم عليه. الخطأ المتبقي محصور في حدود ±10% لكل حدث."""
+    df = df.copy()
+    c, o = df["Close"].to_numpy(), df["Open"].to_numpy()
+    factors = np.ones(len(df))
+    for i in range(max(1, IPO_DAYS), len(df)):
+        r = c[i] / c[i - 1] - 1
+        if abs(r) <= LIMIT + 0.005:
+            continue
+        gap = o[i] / c[i - 1] - 1
+        f = (1 + gap) if abs(gap) > LIMIT + 0.005 else (1 + r) / (1 + np.clip(r, -LIMIT, LIMIT))
+        factors[:i] *= f
+    if (factors != 1).any():
+        for col in ("Open", "High", "Low", "Close"):
+            df[col] = df[col] * factors
+        df["Volume"] = df["Volume"] / factors
+    return df
 
 
 def load_prices(symbol: str, root: Path = DATA) -> pd.DataFrame:

@@ -105,3 +105,13 @@ def test_clean_drops_zero_volume_and_isolated_spike():
     df.iloc[1, df.columns.get_loc("Volume")] = 0
     out = clean(df)
     assert len(out) == 4 and out["Close"].max() < 110
+
+
+def test_corporate_action_back_adjusted():
+    from data import clean
+    seq = list(np.linspace(100, 110, 30)) + list(np.linspace(55, 60, 30))  # تجزئة 1:2 غير معدّلة
+    df = make(seq)
+    df.iloc[30, df.columns.get_loc("Open")] = 55.0
+    out = clean(df)
+    r = out["Close"].pct_change().abs().max()
+    assert r <= 0.11, r

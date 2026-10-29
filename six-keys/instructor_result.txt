@@ -1,9 +1,16 @@
  pivot_n  support_tol  equal_tol  provisional sr_tiebreak  sr_lookback  trend  trend_n  sr  sr_n  total  n
+       8         0.05      0.005         True     nearest          125      4        6   5     5      9 11
+       8         0.05      0.010         True     nearest          125      4        6   5     5      9 11
        3         0.02      0.005         True     nearest          250      5        6   3     5      8 11
        3         0.03      0.005         True     nearest          250      5        6   3     5      8 11
        3         0.05      0.005         True     nearest          250      5        6   3     5      8 11
-       8         0.05      0.005         True     nearest          125      4        6   4     5      8 11
-       8         0.05      0.010         True     nearest          125      4        6   4     5      8 11
+       8         0.03      0.005         True     nearest          125      4        6   4     5      8 11
+       8         0.03      0.010         True     nearest          125      4        6   4     5      8 11
+       8         0.03      0.005         True     nearest          250      4        6   4     5      8 11
+       8         0.03      0.010         True     nearest          250      4        6   4     5      8 11
+       8         0.05      0.005         True     nearest          250      4        6   4     5      8 11
+       8         0.05      0.010         True     nearest          250      4        6   4     5      8 11
+       8         0.05      0.020         True     nearest          125      3        6   5     5      8 11
        3         0.02      0.005         True     nearest          125      5        6   2     5      7 11
        3         0.03      0.005         True     nearest          125      5        6   2     5      7 11
        3         0.05      0.005         True     nearest          125      5        6   2     5      7 11
@@ -12,26 +19,19 @@
        8         0.02      0.010         True   ambiguous          125      4        6   3     5      7 11
        8         0.02      0.010         True     nearest          125      4        6   3     5      7 11
        8         0.03      0.005         True   ambiguous          125      4        6   3     5      7 11
-       8         0.03      0.005         True     nearest          125      4        6   3     5      7 11
        8         0.03      0.010         True   ambiguous          125      4        6   3     5      7 11
-       8         0.03      0.010         True     nearest          125      4        6   3     5      7 11
        8         0.05      0.005         True   ambiguous          125      4        6   3     5      7 11
        8         0.05      0.010         True   ambiguous          125      4        6   3     5      7 11
        8         0.02      0.005         True     nearest          250      4        6   3     5      7 11
        8         0.02      0.010         True     nearest          250      4        6   3     5      7 11
-       8         0.03      0.005         True     nearest          250      4        6   3     5      7 11
-       8         0.03      0.010         True     nearest          250      4        6   3     5      7 11
-       8         0.05      0.005         True     nearest          250      4        6   3     5      7 11
-       8         0.05      0.010         True     nearest          250      4        6   3     5      7 11
-       8         0.05      0.020         True     nearest          125      3        6   4     5      7 11
 
-تركيبات بأعلى مجموع (8/11): 5 من 360
+تركيبات بأعلى مجموع (9/11): 2 من 360
 
-التفاصيل لـ {'pivot_n': 3, 'support_tol': 0.02, 'equal_tol': 0.005, 'provisional': True, 'sr_tiebreak': 'nearest', 'sr_lookback': 250}
+التفاصيل لـ {'pivot_n': 8, 'support_tol': 0.05, 'equal_tol': 0.005, 'provisional': True, 'sr_tiebreak': 'nearest', 'sr_lookback': 125}
 – TASI 2024-08-06 sr دعم لا بيانات محاضرة (5)
 ✓ 4200 2024-08-06 sr دعم دعم (5) الدريس
-✗ 1810 2024-08-06 sr لا شيء مقاومة (5) سيرا — كسر الدعم وهابط
-✗ 4050 2024-08-06 sr دعم مقاومة (5) ساسكو
+✓ 1810 2024-08-06 sr لا شيء لا شيء (5) سيرا — كسر الدعم وهابط
+✓ 4050 2024-08-06 sr دعم دعم (5) ساسكو
 ✓ 1140 2024-08-06 sr دعم دعم (5) البلاد — مقاومة مخترقة
 ✓ 4300 2024-08-06 sr مقاومة مقاومة (5) دار الأركان
 – TASI 2024-08-08 sr مقاومة لا بيانات (7) تاسي إغلاق الخميس
@@ -40,4 +40,4 @@
 ✓ 2382 2024-08-05 trend هابط هابط (6) أديس
 ✓ 1211 2024-08-05 trend هابط هابط (6) معادن
 ✗ 4162 2024-08-05 trend هابط عرضي (6) المنجم
-✓ 1140 2024-08-05 trend صاعد صاعد (6) البلاد
+✗ 1140 2024-08-05 trend صاعد عرضي (6) البلاد
