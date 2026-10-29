@@ -34,7 +34,7 @@ def main(start: str = "2015-01-01") -> None:
         if c in done:
             continue
         h = None
-        for attempt in range(8):
+        for attempt in range(12):
             try:
                 t = yf.Ticker(f"{c}.SR")
                 h = t.history(start=start, auto_adjust=True)
@@ -43,7 +43,7 @@ def main(start: str = "2015-01-01") -> None:
                 if not (isinstance(e, YFRateLimitError) or "Rate" in str(e) or "429" in str(e)):
                     break  # رمز غير موجود
                 print(f"حد الطلبات عند {c} — انتظار", flush=True)
-                time.sleep(60 * (attempt + 1))
+                time.sleep(600)
         else:
             sys.exit(f"توقف عند {c}: حد الطلبات مستمر")
         if h is not None and len(h):
@@ -53,10 +53,10 @@ def main(start: str = "2015-01-01") -> None:
             m = t.history_metadata
             state["names"][str(c)] = m.get("longName") or m.get("shortName")
             print(c, len(h), state["names"][str(c)], flush=True)
-            time.sleep(0.7)  # الرمز غير الموجود يستغرق ~1.3 ثانية بذاته
         state["done"].append(c)
         done.add(c)
         STATE.write_text(json.dumps(state, ensure_ascii=False))
+        time.sleep(1.8)  # ~400 طلب في 4 دقائق أوقع حد Yahoo؛ هذا الإيقاع ~20 طلباً في الدقيقة
     rows = "\n".join(f'{k},"{v}"' for k, v in sorted(state["names"].items()))
     (ROOT / "universe.csv").write_text("symbol,name\n" + rows + "\n", encoding="utf-8")
     print("انتهى:", len(state["names"]), "رمزاً", flush=True)
