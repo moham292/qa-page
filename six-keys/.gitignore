@@ -1,0 +1,5 @@
+__pycache__/
+.pytest_cache/
+trades*.csv
+equity*.csv
+screen_result.csv
