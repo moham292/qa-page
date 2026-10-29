@@ -241,13 +241,20 @@ def main():
     ap.add_argument("--strict-sharia", action="store_true",
                     help="سريان التصنيف من تاريخ نشر القائمة فقط")
     ap.add_argument("--allow-five", action="store_true", help="السماح بـ 5 من 6 بحجم 5%% (محاضرة 9)")
+    ap.add_argument("--market", choices=["ksa", "ew"], default="ksa",
+                    help="مصدر المفتاح 3: ksa = صندوق KSA بتأخير يوم، ew = مؤشر متساوي الأوزان من أسهم السوق الرئيسية")
     a = ap.parse_args()
     p = Params(pivot_n=a.pivot_n, support_tol=a.support_tol, macd_mode=a.macd_mode, sr_lookback=a.sr_lookback)
     print(f"نافذة الدعم/المقاومة: {p.sr_lookback} يوماً")
 
     tasi, bench_name, lag = data.load_benchmark()
-    print(f"مؤشر السوق: {bench_name}" + (f" — بتأخير {lag} يوم لتجنب النظر للمستقبل" if lag else ""))
-    tasi_up = trend_series(tasi, p) == "صاعد"
+    if a.market == "ew" and bench_name != "تاسي":
+        mkt, mkt_name, lag = data.ew_index(), "مؤشر متساوي الأوزان (بديل تاسي)", 0
+    else:
+        mkt, mkt_name = tasi, bench_name
+    print(f"مؤشر السوق للمفتاح 3: {mkt_name}" + (f" — بتأخير {lag} يوم لتجنب النظر للمستقبل" if lag else ""))
+    print(f"معيار المقارنة: {bench_name}")
+    tasi_up = trend_series(mkt, p) == "صاعد"
     if lag:  # حالة المؤشر المعروفة قبل يوم التداول السعودي d: آخر إغلاق قبل d
         tasi_up.index = tasi_up.index + pd.Timedelta(days=lag)
     fund = data.load_fundamentals()
@@ -261,7 +268,7 @@ def main():
 
     full = {s: data.load_prices(s) for s in data.symbols()}
     # الإشارات بلا نظر للمستقبل ← تُحسب مرة على كامل البيانات وتُقص لكل فترة (مخزنة مؤقتاً)
-    key = hashlib.md5(repr((p, a.universe, a.strict_sharia, sorted((s, len(df), str(df.index[-1]))
+    key = hashlib.md5(repr((p, a.universe, a.strict_sharia, *(["ew"] if a.market == "ew" else []), sorted((s, len(df), str(df.index[-1]))
                                                                   for s, df in full.items()))).encode()).hexdigest()[:12]
     cache = Path("results") / f"_signals_{key}.pkl"
     if cache.exists():

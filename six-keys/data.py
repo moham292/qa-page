@@ -46,6 +46,25 @@ def load_benchmark(root: Path = DATA) -> tuple[pd.DataFrame, str, int]:
     return df[["Open", "High", "Low", "Close", "Volume"]].dropna(), "KSA (بديل تاسي)", 1
 
 
+def ew_index(syms: list[str] | None = None, root: Path = DATA) -> pd.DataFrame:
+    """مؤشر تقريبي متساوي الأوزان من أسهم السوق الرئيسية (بديل تاسي للمفتاح 3 عند غياب تاريخه).
+    كل يوم: متوسط نسب الافتتاح/الأعلى/الأدنى/الإغلاق إلى إغلاق الأمس عبر الأسهم المتداولة يومها،
+    وحجم التداول = مجموع قيمة التداول. يُغلق مع السوق السعودي ← بلا تأخير."""
+    syms = syms if syms is not None else symbols(root)
+    frames = {s: load_prices(s, root) for s in syms}
+    ratios = {}
+    for col in ("Open", "High", "Low", "Close"):
+        ratios[col] = pd.DataFrame({s: df[col] / df["Close"].shift(1) - 1 for s, df in frames.items()}).clip(-0.5, 0.5)
+    value = pd.DataFrame({s: df["Close"] * df["Volume"] for s, df in frames.items()}).sum(axis=1)
+    m = {c: r.mean(axis=1) for c, r in ratios.items()}
+    close = (1 + m["Close"].fillna(0)).cumprod() * 1000
+    prev = close.shift(1).fillna(1000)
+    o, h, l = prev * (1 + m["Open"].fillna(0)), prev * (1 + m["High"].fillna(0)), prev * (1 + m["Low"].fillna(0))
+    out = pd.DataFrame({"Open": o, "High": np.maximum.reduce([h, o, close]),
+                        "Low": np.minimum.reduce([l, o, close]), "Close": close, "Volume": value})
+    return out.iloc[1:]
+
+
 def symbols(root: Path = DATA, include_nomu: bool = False) -> list[str]:
     """أسهم السوق الرئيسية (مكونات تاسي). نمو (الرموز 9xxx) مستبعد افتراضياً: ليس في تاسي، وسيولته ضعيفة."""
     return sorted(p.stem for p in (root / "prices").glob("*.csv")
