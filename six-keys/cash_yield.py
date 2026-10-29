@@ -54,23 +54,31 @@ if __name__ == "__main__":
            "KSA وسلة النقية مستثمران بالكامل ← عائد الكاش لا يغيّرهما.", ""]
     for pn, per, start in (("2016–اليوم", "full", "2016-01-01"), ("2018–اليوم", "2018_now", "2018-01-01")):
         ks = stats(ksa.loc[start:])
-        bk = stats(rebalanced(closes.loc[start:], pure_on, "M", COST)[0])
+        bcurve = rebalanced(closes.loc[start:], pure_on, "M", COST)[0]
+        bk = stats(bcurve)
         cell = lambda x: f"{x['سنوياً']:+.2%} / {x['أسوأ تراجع']:.1%} / {x['سنوي÷تراجع']:.2f}"
-        kr = ksa.loc[start:].pct_change().fillna(0)
-        dt = ksa.loc[start:].index.to_series().diff().dt.days.fillna(0)
 
-        def blend(rate, w=0.26):  # نفس تعرّض المنهج تقريباً: 26% KSA و74% مرابحة، إعادة توازن شهرية
+        def blend(asset: pd.Series, rate: float, w: float = 0.26, cost: float = 0.0) -> pd.Series:
+            """w في الأصل و(1−w) مرابحة، إعادة توازن شهرية؛ العمولة على ما يُنقل من/إلى الأصل."""
+            a = asset.pct_change().fillna(0)
+            dt = asset.index.to_series().diff().dt.days.fillna(0)
             i = (1 + rate) ** (dt / 365.25) - 1
             level, vals = 1.0, []
-            for _, g in pd.DataFrame({"k": kr, "i": i}).groupby(kr.index.to_period("M")):
-                path = w * (1 + g.k).cumprod() + (1 - w) * (1 + g.i).cumprod()
+            for _, g in pd.DataFrame({"a": a, "i": i}).groupby(a.index.to_period("M")):
+                ga, gi = (1 + g.a).cumprod(), (1 + g.i).cumprod()
+                path = w * ga + (1 - w) * gi
                 vals += list(level * path)
-                level *= float(path.iloc[-1])
-            return pd.Series(vals, index=kr.index)
+                end = float(path.iloc[-1])
+                drift = w * float(ga.iloc[-1]) / end          # وزن الأصل قبل إعادة التوازن
+                level *= end * (1 - cost * abs(drift - w))
+            return pd.Series(vals, index=a.index)
 
+        halal = {r: stats(blend(bcurve, r, cost=COST)) for r in RATES}
         rows = [["KSA", *[cell(ks)] * len(RATES), "0%"],
-                ["26% KSA + 74% مرابحة (نفس تعرّض المنهج)", *[cell(stats(blend(r))) for r in RATES], "74%"],
-                ["سلة النقية الشهرية (بعد العمولات)", *[cell(bk)] * len(RATES), "0%"]]
+                ["26% KSA + 74% مرابحة (نفس تعرّض المنهج)", *[cell(stats(blend(ksa.loc[start:], r))) for r in RATES], "74%"],
+                ["سلة النقية الشهرية (بعد العمولات)", *[cell(bk)] * len(RATES), "0%"],
+                ["**26% سلة النقية + 74% مرابحة (المعيار الحلال)**", *[cell(halal[r]) for r in RATES], "74%"]]
+        diffs = []
         for label, stem in TAGS.items():
             tag = f"{stem.replace('_five', '')}_{per}" + ("_five" if stem.endswith("_five") else "")
             if not (R / f"equity_{tag}.csv").exists():
@@ -80,9 +88,20 @@ if __name__ == "__main__":
             cells = []
             for rate in RATES:
                 s = stats(with_cash(net, cash, rate))
+                if "النقية" in label and "5/6" not in label:
+                    diffs.append((label, rate, s))
                 cells.append(f"{s['سنوياً']:+.2%} / {s['أسوأ تراجع']:.1%} / {s['سنوي÷تراجع']:.2f}")
             rows.append([label, *cells, f"{cash.mean():.0%}"])
         out += [f"## {pn}", "", "كل خلية: العائد السنوي / أسوأ تراجع / سنوي÷تراجع", "",
                 md_table(["المحفظة", "كاش 0%", "كاش 2%", "كاش 4%", "متوسط الكاش"], rows), ""]
+        drows = []
+        for label, rate, st in diffs:
+            h = halal[rate]
+            drows.append([label, f"{rate:.0%}", f"{st['سنوياً']:+.2%}", f"{h['سنوياً']:+.2%}",
+                          f"{st['سنوياً'] - h['سنوياً']:+.2%}", f"{st['أسوأ تراجع']:.1%}", f"{h['أسوأ تراجع']:.1%}",
+                          f"{st['سنوي÷تراجع']:.2f}", f"{h['سنوي÷تراجع']:.2f}"])
+        out += [f"### فرق المنهج B125 (النقية) على المعيار الحلال — {pn}", "",
+                md_table(["المنهج", "عائد الكاش", "المنهج سنوياً", "المعيار سنوياً", "الفرق", "تراجع المنهج",
+                          "تراجع المعيار", "سنوي÷تراجع المنهج", "سنوي÷تراجع المعيار"], drows), ""]
     (R / "cash_yield.md").write_text("\n".join(out), encoding="utf-8")
     print("\n".join(out))
