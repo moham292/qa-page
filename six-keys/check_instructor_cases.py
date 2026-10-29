@@ -47,7 +47,7 @@ def run(p: Params) -> list[tuple]:
 
 
 GRID = dict(pivot_n=[2, 3, 5, 8, 13], support_tol=[0.02, 0.03, 0.05], equal_tol=[0.005, 0.01, 0.02],
-            provisional=[False, True], sr_tiebreak=["ambiguous", "nearest"])
+            provisional=[False, True], sr_tiebreak=["ambiguous", "nearest"], sr_lookback=[125, 250])  # محاضرة 7: شارت 6 أشهر؛ محاضرة 6: سنة
 
 
 def grid() -> pd.DataFrame:
@@ -60,7 +60,8 @@ def grid() -> pd.DataFrame:
         rows.append({**kw, "trend": sum(r[3] == r[4] for r in tr), "trend_n": len(tr),
                      "sr": sum(r[3] == r[4] for r in sr), "sr_n": len(sr),
                      "total": sum(r[3] == r[4] for r in res), "n": len(res)})
-    return pd.DataFrame(rows).sort_values(["total", "trend"], ascending=False)
+    # عند التعادل: النافذة الأقصر أولاً (6 أشهر = إعداد المدربين المعتاد)
+    return pd.DataFrame(rows).sort_values(["total", "trend", "sr_lookback"], ascending=[False, False, True])
 
 
 if __name__ == "__main__":
@@ -79,10 +80,11 @@ if __name__ == "__main__":
     best = g.iloc[0].to_dict()
     kw = {k: best[k] for k in GRID}
     for k in GRID:
-        v = getattr(a, k)
+        v = getattr(a, k, None)
         if v not in (None, False):
             kw[k] = v
     kw["pivot_n"] = int(kw["pivot_n"])
+    kw["sr_lookback"] = int(kw["sr_lookback"])
     print("\nالتفاصيل لـ", kw)
     for r in run(Params(**kw)):
         mark = "✓" if r[3] == r[4] else ("–" if r[4] == "لا بيانات" else "✗")

@@ -44,6 +44,10 @@ class Params:
     provisional: bool = True    # معايَر
     # إذا كان السعر قريباً من دعم ومقاومة معاً: "ambiguous" يتركها حالة مستقلة، "nearest" يختار الأقرب (اجتهاد).
     sr_tiebreak: str = "nearest"  # معايَر
+    # الدعوم/المقاومات من آخر sr_lookback شمعة فقط: بدونه تتغير النتيجة بطول التاريخ المحمّل.
+    # محاضرة 7: شارت "ست شهور" (~125 يوماً)؛ محاضرة 6: "المدة الزمنية اعملها سنة" (~250).
+    # المعايرة: سنة 8/11 مقابل 6 أشهر 7/11 (بنفس pivot_n=3) ← اعتُمدت السنة. الفرق حالة واحدة. 0 = كل التاريخ.
+    sr_lookback: int = 250
 
 
 # ---------- أدوات أساسية ----------
@@ -165,6 +169,9 @@ def support_status(df: pd.DataFrame, p: Params, piv=None) -> tuple[str, float | 
     highs, lows = piv if piv is not None else pivots(df, p.pivot_n)
     H, L = df["High"].to_numpy(), df["Low"].to_numpy()
     c = df["Close"].iloc[-1]
+    if p.sr_lookback:
+        lo = len(df) - p.sr_lookback
+        highs, lows = [i for i in highs if i >= lo], [i for i in lows if i >= lo]
     supports, resistances = [], []
     for i in lows:
         (supports if c >= L[i] else resistances).append(L[i])
