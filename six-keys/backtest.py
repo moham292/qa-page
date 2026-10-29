@@ -16,7 +16,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 from dataclasses import asdict, dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -72,6 +74,7 @@ def signals(sym: str, df: pd.DataFrame, tasi_up: pd.Series, fund, sharia, p: Par
     line, sig = macd(df["Close"], p.macd_fast, p.macd_slow, p.macd_signal)
     diff = (line - sig).to_numpy()
     value = (df["Close"] * df["Volume"]).rolling(20, min_periods=5).mean()
+    pure = data.pure_mask(sharia, sym, df.index) if sharia is not None else np.ones(len(df), dtype=bool)
     rows = []
     for t in range(warmup, len(df)):
         d = df.index[t]
@@ -86,9 +89,8 @@ def signals(sym: str, df: pd.DataFrame, tasi_up: pd.Series, fund, sharia, p: Par
         if p.macd_mode == "event":
             k6 = k6 and any(diff[j - 1] <= 0 < diff[j]
                             for j in range(max(1, t - p.macd_event_days + 1), t + 1))
-        pure = data.is_pure(sharia, sym, d)
         rows.append({"date": d, "k1": k1, "k2": k2, "k3": k3, "k4": k4, "k5": bool(k5), "k6": bool(k6),
-                     "exit": bool(diff[t - 1] >= 0 > diff[t]), "allowed": pure is not False,
+                     "exit": bool(diff[t - 1] >= 0 > diff[t]), "allowed": bool(pure[t]),
                      "liquidity": value.iloc[t]})
     out = pd.DataFrame(rows).set_index("date")
     out["score"] = out[["k1", "k2", "k3", "k4", "k5", "k6"]].sum(axis=1)
@@ -176,10 +178,16 @@ def _cagr(s: pd.Series) -> float:
     return float((s.iloc[-1] / s.iloc[0]) ** (1 / years) - 1) if years > 0 else float("nan")
 
 
-def equal_weight(prices: dict[str, pd.DataFrame], dates: pd.DatetimeIndex) -> pd.Series:
-    """معيار ثانوي: متوسط العائد اليومي لكل الأسهم المتاحة (أوزان متساوية، إعادة توازن يومية)."""
+def equal_weight(prices: dict[str, pd.DataFrame], dates: pd.DatetimeIndex,
+                 allowed: pd.DataFrame | None = None) -> pd.Series:
+    """معيار ثانوي: متوسط العائد اليومي لكل الأسهم المسموحة في نفس اليوم (أوزان متساوية، إعادة توازن يومية).
+    في تشغيل "النقية فقط" يكون المعيار سلة النقية السارية يوماً بيوم."""
     closes = pd.DataFrame({s: df["Close"] for s, df in prices.items()}).reindex(dates)
-    r = closes.pct_change(fill_method=None).mean(axis=1).fillna(0)
+    r = closes.pct_change(fill_method=None)
+    if allowed is not None:  # السماح بحسب تصنيف الأمس (ما كان المستثمر يملكه خلال اليوم)
+        r = r.where(allowed.reindex(index=dates, columns=r.columns).shift(1).fillna(False).astype(bool))
+    r = r.clip(-0.5, 0.5).mean(axis=1).fillna(0)
+    r.iloc[0] = 0
     return (1 + r).cumprod()
 
 
@@ -198,7 +206,10 @@ def summarize(eq: pd.Series, trades: list[Trade], bench: pd.DataFrame, bench_nam
     if "exposure" in eq.attrs:
         x = eq.attrs["exposure"]
         out["متوسط نسبة الاستثمار (الباقي كاش)"] = f"{x.mean():.0%} — أيام بلا أي صفقة: {(x < 0.01).mean():.0%}"
-    out["عدد الصفقات"] = len(trades)
+    n_open = sum(x.exit_date is None for x in trades)
+    out["عدد الصفقات"] = f"{len(trades)}" + (f" (منها {n_open} مفتوحة في نهاية الفترة، مقيّمة بآخر إغلاق)" if n_open else "")
+    if len(trades) < 30:
+        out["⚠ تنبيه"] = f"{len(trades)} صفقة فقط — عدد قليل لا يكفي للحكم الإحصائي"
     if trades:
         r = np.array([x.ret for x in trades])
         dd = np.array([x.max_drawdown for x in trades])
@@ -223,6 +234,10 @@ def main():
     ap.add_argument("--pivot-n", type=int, default=3)
     ap.add_argument("--support-tol", type=float, default=0.03)
     ap.add_argument("--macd-mode", choices=["state", "event"], default="state")
+    ap.add_argument("--universe", choices=["all", "pure"], default="all",
+                    help="all: كل السوق بلا فلتر شرعي، pure: النقية فقط حسب sharia.csv")
+    ap.add_argument("--strict-sharia", action="store_true",
+                    help="سريان التصنيف من تاريخ نشر القائمة فقط")
     ap.add_argument("--allow-five", action="store_true", help="السماح بـ 5 من 6 بحجم 5%% (محاضرة 9)")
     a = ap.parse_args()
     p = Params(pivot_n=a.pivot_n, support_tol=a.support_tol, macd_mode=a.macd_mode)
@@ -232,22 +247,36 @@ def main():
     tasi_up = trend_series(tasi, p) == "صاعد"
     if lag:  # حالة المؤشر المعروفة قبل يوم التداول السعودي d: آخر إغلاق قبل d
         tasi_up.index = tasi_up.index + pd.Timedelta(days=lag)
-    fund, sharia = data.load_fundamentals(), data.load_sharia()
+    fund = data.load_fundamentals()
+    sharia = data.load_sharia(strict=a.strict_sharia) if a.universe == "pure" else None
     if fund is None:
         print("تنبيه: لا يوجد fundamentals.csv — المفتاح 2 يُعتبر متحققاً لكل الأسهم.")
-    if sharia is None:
-        print("تنبيه: لا يوجد sharia.csv — الفلتر الشرعي معطّل.")
+    if a.universe == "pure" and sharia is None:
+        raise SystemExit("لا يوجد data/sharia.csv")
+    print("الأسهم:", "النقية فقط" + (" (سريان صارم من تاريخ النشر)" if a.strict_sharia else "")
+          if sharia is not None else "كل السوق")
 
-    prices = {s: data.load_prices(s).loc[:a.end] for s in data.symbols()}
-    all_days = sorted(set().union(*[df.index for df in prices.values()]))
-    tasi_up = tasi_up.reindex(tasi_up.index.union(all_days)).ffill().fillna(False).astype(bool)
-    sigs = {s: signals(s, df, tasi_up, fund, sharia, p) for s, df in prices.items() if len(df) > 80}
-    if a.start:
-        sigs = {s: x.loc[a.start:] for s, x in sigs.items() if len(x.loc[a.start:])}
+    full = {s: data.load_prices(s) for s in data.symbols()}
+    # الإشارات بلا نظر للمستقبل ← تُحسب مرة على كامل البيانات وتُقص لكل فترة (مخزنة مؤقتاً)
+    key = hashlib.md5(repr((p, a.universe, a.strict_sharia, sorted((s, len(df), str(df.index[-1]))
+                                                                  for s, df in full.items()))).encode()).hexdigest()[:12]
+    cache = Path("results") / f"_signals_{key}.pkl"
+    if cache.exists():
+        sigs = pd.read_pickle(cache)
+    else:
+        all_days = sorted(set().union(*[df.index for df in full.values()]))
+        tasi_up = tasi_up.reindex(tasi_up.index.union(all_days)).ffill().fillna(False).astype(bool)
+        sigs = {s: signals(s, df, tasi_up, fund, sharia, p) for s, df in full.items() if len(df) > 80}
+        cache.parent.mkdir(exist_ok=True)
+        pd.to_pickle(sigs, cache)
+    prices = {s: df.loc[:a.end] for s, df in full.items()}
+    sigs = {s: x.loc[a.start:a.end] for s, x in sigs.items()}
+    sigs = {s: x for s, x in sigs.items() if len(x)}
     eq, trades = simulate(sigs, prices, a.allow_five)
     pd.DataFrame([asdict(t) for t in trades]).to_csv(f"trades{a.tag}.csv", index=False, encoding="utf-8-sig")
     eq.to_csv(f"equity{a.tag}.csv", header=["equity"])
-    ew = equal_weight(prices, eq.index)
+    allowed = pd.DataFrame({s: x["allowed"] for s, x in sigs.items()})
+    ew = equal_weight(prices, eq.index, allowed)
     for k, v in summarize(eq, trades, tasi, bench_name, ew).items():
         print(f"{k}: {v}")
 

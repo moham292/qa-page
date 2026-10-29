@@ -67,11 +67,27 @@ def net_income_positive(fund: pd.DataFrame | None, symbol: str, on: pd.Timestamp
     return bool(rows.sort_values("fiscal_year").iloc[-1].net_income > 0)
 
 
-def load_sharia(root: Path = DATA) -> pd.DataFrame | None:
+
+
+def load_sharia(root: Path = DATA, strict: bool = False) -> pd.DataFrame | None:
+    """strict: السريان يبدأ من تاريخ نشر القائمة (list_published) حتى لو سُجّل valid_from أقدم
+    (القائمة الأولى منشورة 2016-06-05 ومسجلة من 2000-01-01)."""
     f = root / "sharia.csv"
     if not f.exists():
         return None
-    return pd.read_csv(f, parse_dates=["valid_from", "valid_to"], dtype={"symbol": str})
+    df = pd.read_csv(f, parse_dates=["valid_from", "valid_to"], dtype={"symbol": str})
+    if strict and "list_published" in df:
+        df["valid_from"] = df[["valid_from"]].join(pd.to_datetime(df["list_published"])).max(axis=1)
+    return df
+
+
+def pure_mask(sharia: pd.DataFrame, symbol: str, dates: pd.DatetimeIndex) -> np.ndarray:
+    """لكل تاريخ: هل السهم "نقي" حسب القائمة السارية؟ (غير مدرج في القائمة = غير نقي)."""
+    out = np.zeros(len(dates), dtype=bool)
+    for r in sharia[sharia.symbol == symbol].itertuples():
+        end = r.valid_to if pd.notna(r.valid_to) else pd.Timestamp.max
+        out[(dates >= r.valid_from) & (dates <= end)] = r.classification == "نقية"
+    return out
 
 
 def is_pure(sharia: pd.DataFrame | None, symbol: str, on: pd.Timestamp) -> bool | None:

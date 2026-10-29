@@ -26,7 +26,7 @@ RANGES = [(1010, 1835), (2001, 2400), (3001, 3100), (4001, 4350), (5110, 5110),
           (6001, 6100), (7010, 7250), (8010, 8320)]
 
 
-def main(start: str = "2015-01-01") -> None:
+def main(start: str = "2014-01-01") -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     state = json.loads(STATE.read_text()) if STATE.exists() else {"done": [], "names": {}}
     done = set(state["done"])

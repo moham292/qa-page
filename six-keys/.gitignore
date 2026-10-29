@@ -3,3 +3,4 @@ __pycache__/
 /trades*.csv
 /equity*.csv
 screen_result.csv
+results/_signals_*.pkl
