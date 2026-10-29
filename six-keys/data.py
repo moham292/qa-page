@@ -46,8 +46,10 @@ def load_benchmark(root: Path = DATA) -> tuple[pd.DataFrame, str, int]:
     return df[["Open", "High", "Low", "Close", "Volume"]].dropna(), "KSA (بديل تاسي)", 1
 
 
-def symbols(root: Path = DATA) -> list[str]:
-    return sorted(p.stem for p in (root / "prices").glob("*.csv") if p.stem != "TASI")
+def symbols(root: Path = DATA, include_nomu: bool = False) -> list[str]:
+    """أسهم السوق الرئيسية (مكونات تاسي). نمو (الرموز 9xxx) مستبعد افتراضياً: ليس في تاسي، وسيولته ضعيفة."""
+    return sorted(p.stem for p in (root / "prices").glob("*.csv")
+                  if p.stem != "TASI" and (include_nomu or not p.stem.startswith("9")))
 
 
 def load_fundamentals(root: Path = DATA) -> pd.DataFrame | None:
