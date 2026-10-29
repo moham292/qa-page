@@ -4,4 +4,4 @@ __pycache__/
 /equity*.csv
 screen_result.csv
 results/_signals_*.pkl
-results/  # مؤقتاً أثناء التشغيل
+results/
