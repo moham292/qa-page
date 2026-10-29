@@ -233,6 +233,8 @@ def main():
     ap.add_argument("--tag", default="", help="لاحقة لأسماء ملفات النتائج")
     ap.add_argument("--pivot-n", type=int, default=3)
     ap.add_argument("--support-tol", type=float, default=0.03)
+    ap.add_argument("--sr-lookback", type=int, default=Params().sr_lookback,
+                    help="نافذة الدعوم/المقاومات بالأيام (125 = 6 أشهر، 250 = سنة)")
     ap.add_argument("--macd-mode", choices=["state", "event"], default="state")
     ap.add_argument("--universe", choices=["all", "pure"], default="all",
                     help="all: كل السوق بلا فلتر شرعي، pure: النقية فقط حسب sharia.csv")
@@ -240,7 +242,8 @@ def main():
                     help="سريان التصنيف من تاريخ نشر القائمة فقط")
     ap.add_argument("--allow-five", action="store_true", help="السماح بـ 5 من 6 بحجم 5%% (محاضرة 9)")
     a = ap.parse_args()
-    p = Params(pivot_n=a.pivot_n, support_tol=a.support_tol, macd_mode=a.macd_mode)
+    p = Params(pivot_n=a.pivot_n, support_tol=a.support_tol, macd_mode=a.macd_mode, sr_lookback=a.sr_lookback)
+    print(f"نافذة الدعم/المقاومة: {p.sr_lookback} يوماً")
 
     tasi, bench_name, lag = data.load_benchmark()
     print(f"مؤشر السوق: {bench_name}" + (f" — بتأخير {lag} يوم لتجنب النظر للمستقبل" if lag else ""))
