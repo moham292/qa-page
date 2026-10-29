@@ -191,8 +191,29 @@ def equal_weight(prices: dict[str, pd.DataFrame], dates: pd.DatetimeIndex,
     return (1 + r).cumprod()
 
 
+def equal_weight_monthly(prices: dict[str, pd.DataFrame], dates: pd.DatetimeIndex,
+                         allowed: pd.DataFrame | None = None) -> pd.Series:
+    """سلة متساوية بإعادة توازن شهرية: أول كل شهر أوزان متساوية بين الأسهم المسموحة (بتصنيف آخر يوم قبله)،
+    ثم شراء واحتفاظ حتى نهاية الشهر. أقل تأثراً بتذبذب الأسهم قليلة السيولة من إعادة التوازن اليومية."""
+    closes = pd.DataFrame({s: df["Close"] for s, df in prices.items()}).reindex(dates)
+    r = closes.pct_change(fill_method=None).clip(-0.5, 0.5).iloc[1:]
+    ok = None
+    if allowed is not None:
+        ok = allowed.reindex(index=dates, columns=r.columns).shift(1).fillna(False).astype(bool).iloc[1:]
+    vals, idx, level = [1.0], [dates[0]], 1.0
+    for _, g in r.groupby(r.index.to_period("M")):
+        cols = g.columns[g.notna().any()]
+        if ok is not None:
+            cols = [c for c in cols if ok.loc[g.index[0], c]]
+        if not len(cols):
+            vals += [level] * len(g); idx += list(g.index); continue
+        path = (1 + g[cols].fillna(0)).cumprod().mean(axis=1) * level
+        vals += list(path); idx += list(g.index); level = float(path.iloc[-1])
+    return pd.Series(vals, index=idx)
+
+
 def summarize(eq: pd.Series, trades: list[Trade], bench: pd.DataFrame, bench_name: str = "تاسي",
-              ew: pd.Series | None = None) -> dict:
+              ew: pd.Series | None = None, ewm: pd.Series | None = None) -> dict:
     t = bench["Close"].loc[eq.index[0]:eq.index[-1]]
     out = {
         "الفترة": f"{eq.index[0].date()} ← {eq.index[-1].date()}",
@@ -203,6 +224,8 @@ def summarize(eq: pd.Series, trades: list[Trade], bench: pd.DataFrame, bench_nam
     }
     if ew is not None:
         out["عائد كل الأسهم بأوزان متساوية"] = f"{ew.iloc[-1] - 1:.2%} (سنوياً {_cagr(ew):.2%})، أسوأ تراجع {_max_dd(ew):.2%}"
+    if ewm is not None:
+        out["سلة متساوية بإعادة توازن شهرية"] = f"{ewm.iloc[-1] - 1:.2%} (سنوياً {_cagr(ewm):.2%})، أسوأ تراجع {_max_dd(ewm):.2%}"
     if "exposure" in eq.attrs:
         x = eq.attrs["exposure"]
         out["متوسط نسبة الاستثمار (الباقي كاش)"] = f"{x.mean():.0%} — أيام بلا أي صفقة: {(x < 0.01).mean():.0%}"
@@ -287,7 +310,8 @@ def main():
     eq.to_csv(f"equity{a.tag}.csv", header=["equity"])
     allowed = pd.DataFrame({s: x["allowed"] for s, x in sigs.items()})
     ew = equal_weight(prices, eq.index, allowed)
-    for k, v in summarize(eq, trades, tasi, bench_name, ew).items():
+    ewm = equal_weight_monthly(prices, eq.index, allowed)
+    for k, v in summarize(eq, trades, tasi, bench_name, ew, ewm).items():
         print(f"{k}: {v}")
 
 
