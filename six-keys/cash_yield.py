@@ -36,6 +36,23 @@ def with_cash(curve: pd.Series, cash: pd.Series, rate: float) -> pd.Series:
     return (1 + r + cash.shift(1).fillna(1) * i).cumprod() * curve.iloc[0]
 
 
+def blend(asset: pd.Series, rate: float, w: float = 0.26, cost: float = 0.0) -> pd.Series:
+    """w في الأصل و(1−w) مرابحة، إعادة توازن شهرية؛ العمولة على ما يُنقل من/إلى الأصل."""
+    a = asset.pct_change().fillna(0)
+    dt = asset.index.to_series().diff().dt.days.fillna(0)
+    i = (1 + rate) ** (dt / 365.25) - 1
+    level, vals = 1.0, []
+    for _, g in pd.DataFrame({"a": a, "i": i}).groupby(a.index.to_period("M")):
+        ga, gi = (1 + g.a).cumprod(), (1 + g.i).cumprod()
+        path = w * ga + (1 - w) * gi
+        vals += list(level * path)
+        end = float(path.iloc[-1])
+        drift = w * float(ga.iloc[-1]) / end          # وزن الأصل قبل إعادة التوازن
+        level *= end * (1 - cost * abs(drift - w))
+    return pd.Series(vals, index=a.index)
+
+
+
 if __name__ == "__main__":
     closes = pd.DataFrame({s: data.load_prices(s)["Close"] for s in data.symbols()})
     ksa = data.load_benchmark()[0]["Close"]
@@ -57,21 +74,6 @@ if __name__ == "__main__":
         bcurve = rebalanced(closes.loc[start:], pure_on, "M", COST)[0]
         bk = stats(bcurve)
         cell = lambda x: f"{x['سنوياً']:+.2%} / {x['أسوأ تراجع']:.1%} / {x['سنوي÷تراجع']:.2f}"
-
-        def blend(asset: pd.Series, rate: float, w: float = 0.26, cost: float = 0.0) -> pd.Series:
-            """w في الأصل و(1−w) مرابحة، إعادة توازن شهرية؛ العمولة على ما يُنقل من/إلى الأصل."""
-            a = asset.pct_change().fillna(0)
-            dt = asset.index.to_series().diff().dt.days.fillna(0)
-            i = (1 + rate) ** (dt / 365.25) - 1
-            level, vals = 1.0, []
-            for _, g in pd.DataFrame({"a": a, "i": i}).groupby(a.index.to_period("M")):
-                ga, gi = (1 + g.a).cumprod(), (1 + g.i).cumprod()
-                path = w * ga + (1 - w) * gi
-                vals += list(level * path)
-                end = float(path.iloc[-1])
-                drift = w * float(ga.iloc[-1]) / end          # وزن الأصل قبل إعادة التوازن
-                level *= end * (1 - cost * abs(drift - w))
-            return pd.Series(vals, index=a.index)
 
         halal = {r: stats(blend(bcurve, r, cost=COST)) for r in RATES}
         rows = [["KSA", *[cell(ks)] * len(RATES), "0%"],
