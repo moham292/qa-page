@@ -11,14 +11,27 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 DATA = Path(__file__).parent / "data"
 
 
+def clean(df: pd.DataFrame) -> pd.DataFrame:
+    """تنظيف بيانات Yahoo للأسهم السعودية:
+    - أيام حجمها صفر بسعر مكرر (عطل/إيقاف يملؤها Yahoo) ← تُحذف.
+    - قفزة معزولة ليوم واحد (حركة > 25% تنعكس في اليوم التالي بأكثر من 20%) ← خطأ بيانات، تُحذف.
+      حد التذبذب اليومي في تداول ±10%، فلا تُحذف حركة حقيقية بهذه القاعدة إلا نادراً."""
+    df = df[(df["Volume"] > 0) & (df[["Open", "High", "Low", "Close"]] > 0).all(axis=1)]
+    r = df["Close"].pct_change()
+    spike = (r.abs() > 0.25) & (r.shift(-1).abs() > 0.20) & (np.sign(r) != np.sign(r.shift(-1)))
+    return df[~spike]
+
+
 def load_prices(symbol: str, root: Path = DATA) -> pd.DataFrame:
     df = pd.read_csv(root / "prices" / f"{symbol}.csv", parse_dates=["Date"]).set_index("Date").sort_index()
-    return df[["Open", "High", "Low", "Close", "Volume"]].dropna()
+    df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
+    return df if symbol == "TASI" else clean(df)
 
 
 def load_benchmark(root: Path = DATA) -> tuple[pd.DataFrame, str, int]:

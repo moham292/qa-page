@@ -99,7 +99,7 @@ def simulate(sigs: dict[str, pd.DataFrame], prices: dict[str, pd.DataFrame],
              allow_five: bool) -> tuple[pd.Series, list[Trade]]:
     """محفظة بأوزان ثابتة من رأس المال الابتدائي (مبسّطة: بلا إعادة استثمار داخل اليوم، بلا عمولات)."""
     dates = sorted(set().union(*[s.index for s in sigs.values()]))
-    cash, equity_curve = 1.0, []
+    cash, equity_curve, exposure = 1.0, [], []
     open_pos: dict[str, tuple[Trade, float]] = {}  # symbol -> (trade, shares)
     closed: list[Trade] = []
     pending_exit, pending_entry = set(), []
@@ -133,6 +133,7 @@ def simulate(sigs: dict[str, pd.DataFrame], prices: dict[str, pd.DataFrame],
                 tr.max_drawdown = min(tr.max_drawdown, prices[sym].at[d, "Low"] / tr.entry - 1)
             value += sh * prices[sym].loc[:d, "Close"].iloc[-1]
         equity_curve.append((d, value))
+        exposure.append((d, 1 - cash / value))
 
         # إشارات اليوم ← أوامر الغد
         for sym in open_pos:
@@ -162,6 +163,7 @@ def simulate(sigs: dict[str, pd.DataFrame], prices: dict[str, pd.DataFrame],
         tr.exit, tr.ret = px, px / tr.entry - 1
         closed.append(tr)
     eq = pd.Series(dict(equity_curve)).sort_index()
+    eq.attrs["exposure"] = pd.Series(dict(exposure)).sort_index()
     return eq, closed
 
 
@@ -193,6 +195,9 @@ def summarize(eq: pd.Series, trades: list[Trade], bench: pd.DataFrame, bench_nam
     }
     if ew is not None:
         out["عائد كل الأسهم بأوزان متساوية"] = f"{ew.iloc[-1] - 1:.2%} (سنوياً {_cagr(ew):.2%})، أسوأ تراجع {_max_dd(ew):.2%}"
+    if "exposure" in eq.attrs:
+        x = eq.attrs["exposure"]
+        out["متوسط نسبة الاستثمار (الباقي كاش)"] = f"{x.mean():.0%} — أيام بلا أي صفقة: {(x < 0.01).mean():.0%}"
     out["عدد الصفقات"] = len(trades)
     if trades:
         r = np.array([x.ret for x in trades])

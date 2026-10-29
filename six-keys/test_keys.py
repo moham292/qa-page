@@ -97,3 +97,11 @@ def test_candle_straddling_sma_counts_as_below():
     df.iloc[-1, df.columns.get_loc("Open")] = s * 0.99   # يفتح تحت المتوسط
     df.iloc[-1, df.columns.get_loc("Close")] = s * 1.02  # ويغلق فوقه
     assert not above_sma(df, P)
+
+
+def test_clean_drops_zero_volume_and_isolated_spike():
+    from data import clean
+    df = make([100, 101, 102, 150, 103, 104])
+    df.iloc[1, df.columns.get_loc("Volume")] = 0
+    out = clean(df)
+    assert len(out) == 4 and out["Close"].max() < 110
