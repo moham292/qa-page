@@ -24,7 +24,7 @@ import common
 from common import COST, HERE, LIST_NAMES, LISTS, MARKET, PARAMS, WARMUP, clean, download, load_csv
 from keys import above_sma, macd_negative_cross, macd_positive, support_status, trend
 
-SIGNAL_START = None   # يُحدَّد عند التفعيل: pd.Timestamp("YYYY-MM-DD") = أول يوم إشارة (أول يوم تالٍ للتفعيل)
+SIGNAL_START = pd.Timestamp("2026-11-11")   # فُعِّل 2026-11-11 14:40 UTC قبل إغلاق شمعة اليوم: أول يوم إشارة
 END = pd.Timestamp("2027-04-29")   # آخر يوم تقييم، مع نهاية تجربة الأسهم
 CAPITAL = 100_000.0
 SLOT, MAX_SLOTS = 0.20, 4
